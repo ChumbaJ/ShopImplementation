@@ -7,7 +7,7 @@
 
 var ShopImpl = (function () {
   function ShopImpl() {
-    this.products = [];
+    this.products = new Map();
   }
 
   /**
@@ -16,15 +16,9 @@ var ShopImpl = (function () {
    * - Returns: false if the product with same id already exists in the Shop, true – otherwise.
    */
   ShopImpl.prototype.addNewProduct = function (product) {
-    if (
-      this.products.find((p) => {
-        return p.id === product.id;
-      })
-    ) {
-      return false;
-    }
-
-    this.products.push(product);
+    if (this.products.has(product.id)) return false;
+    
+    this.products.set(product.id, product);
     return true;
   };
 
@@ -33,15 +27,10 @@ var ShopImpl = (function () {
    * - Returns: true if the product with the same id existed in the Shop, false – otherwise.
    */
   ShopImpl.prototype.deleteProduct = function (id) {
-    const productIndex = this.products.findIndex((product) => {
-      return product.id === id;
-    });
+    if (!this.products.has(id)) return false;
 
-    if (productIndex === -1) {
-      return false;
-    }
+    this.products.delete(id);
 
-    this.products.splice(productIndex, 1);
     return true;
   };
 
@@ -50,48 +39,57 @@ var ShopImpl = (function () {
    * If there are several products with the same name, producer's name is appended to product's name.
    */
   ShopImpl.prototype.listProductsByName = function (searchString) {
-    const rawResult = this.products.filter((product) => {
-      return product.name.includes(searchString);
-    });
-
-    const productsMap = new Map();
-    const uniqueProducts = new Set();
     const result = [];
 
-    rawResult.forEach((product) =>
-      productsMap.set(product.name, (productsMap.get(product.name) || 0) + 1)
-    );
+    const searchMap = new Map();
 
-    rawResult.forEach((product) => {
-      if (productsMap.get(product.name) === 1) uniqueProducts.add(product.name);
-    });
-
-    rawResult.slice(0, 10).forEach((product) => {
-      if (uniqueProducts.has(product.name)) {
-        result.push(product.name);
-      } else {
-        result.push(`${product.producer} - ${product.name}`);
+    this.products.forEach((product) => {
+      if (product.name.includes(searchString)) {
+        if (!searchMap.has(product.name)) {
+          searchMap.set(product.name, []);
+        }
+        searchMap.get(product.name).push(product);
       }
     });
 
+    let limit = 10;
+
+    searchMap.forEach((products, name) => {
+      if (limit === 0) return;
+  
+      if (products.length > 1) {
+        products.forEach((product) => {
+          if (limit === 0) return;
+          result.push(`${product.producer} - ${name}`);
+          limit--;
+        });
+      } else {
+        result.push(name);
+        limit--;
+      }
+    });
+  
     return result;
+
   };
 
   /**
    * Returns 10 product names whose producer contains the specified string, ordered by producers.
    */
   ShopImpl.prototype.listProductsByProducer = function (searchString) {
-    const result = this.products
-      .filter((product) => {
-        return product.producer.includes(searchString);
-      })
-      .sort((a, b) => {
-        return a.producer.localeCompare(b.producer);
-      });
+    const result = [];
 
-    return result.slice(0, 10).map((product) => {
-      return product.name;
+    this.products.forEach((product) => {
+      if (product.producer && product.producer.includes(searchString)) {
+        result.push(product);
+      }
     });
+  
+    result.sort((a, b) => {
+      return a.producer.localeCompare(b.producer);
+    });
+  
+    return result.slice(0, 10).map(product => product.name);
   };
 
   return ShopImpl;
